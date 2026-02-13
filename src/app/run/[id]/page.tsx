@@ -8,65 +8,41 @@ import { SummaryReport } from "@/components/SummaryReport";
 import { ScoresTable } from "@/components/ScoresTable";
 import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import type { Trajectory, TrajectoryStep } from "@/lib/types";
+import type { Trajectory } from "@/lib/types";
 
 function extractImages(trajectory: Trajectory) {
-  const images: { path: string; label?: string }[] = [];
-  const steps = trajectory.steps ?? {};
+  // The "images" step collects only images; use it exclusively to avoid
+  // duplicates from the "tbench" step which also lists every file.
+  const imagesStep = trajectory.steps?.images;
+  if (!imagesStep) return [];
 
-  for (const [stepName, step] of Object.entries(steps) as [string, TrajectoryStep][]) {
-    const outputs = step.outputs as Record<string, unknown> | undefined;
-    if (!outputs) continue;
+  const files = (imagesStep.outputs as Record<string, unknown> | undefined)
+    ?.files as { path: string; content_type?: string }[] | undefined;
+  if (!Array.isArray(files)) return [];
 
-    // Check for images array (common pattern)
-    const imgArray = outputs.images as
-      | { path: string }[]
-      | undefined;
-    if (Array.isArray(imgArray)) {
-      for (const img of imgArray) {
-        if (img.path) {
-          images.push({ path: img.path, label: stepName });
-        }
-      }
-    }
-
-    // Check for files array
-    const fileArray = outputs.files as
-      | { path: string; content_type?: string }[]
-      | undefined;
-    if (Array.isArray(fileArray)) {
-      for (const f of fileArray) {
-        if (
-          f.path &&
-          (f.content_type?.startsWith("image/") ||
-            /\.(jpg|jpeg|png|webp|gif)$/i.test(f.path))
-        ) {
-          images.push({ path: f.path, label: stepName });
-        }
-      }
-    }
-  }
-
-  return images;
+  return files
+    .filter(
+      (f) =>
+        f.path &&
+        (f.content_type?.startsWith("image/") ||
+          /\.(jpg|jpeg|png|webp|gif)$/i.test(f.path))
+    )
+    .map((f) => ({ path: f.path }));
 }
 
 function extractReportPaths(trajectory: Trajectory) {
-  const steps = trajectory.steps ?? {};
+  // Reports are collected by the "reports" step
+  const reportsStep = trajectory.steps?.reports;
+  const files = (reportsStep?.outputs as Record<string, unknown> | undefined)
+    ?.files as { path: string }[] | undefined;
+
   let summaryPath: string | undefined;
   let scoresPath: string | undefined;
 
-  for (const step of Object.values(steps) as TrajectoryStep[]) {
-    const outputs = step.outputs as Record<string, unknown> | undefined;
-    if (!outputs) continue;
-
-    const fileArray = outputs.files as
-      | { path: string }[]
-      | undefined;
-    if (Array.isArray(fileArray)) {
-      for (const f of fileArray) {
-        if (f.path?.endsWith("summary.md")) summaryPath = f.path;
-        if (f.path?.endsWith("scores.json")) scoresPath = f.path;
-      }
+  if (Array.isArray(files)) {
+    for (const f of files) {
+      if (f.path?.endsWith("summary.md")) summaryPath = f.path;
+      if (f.path?.endsWith("scores.json")) scoresPath = f.path;
     }
   }
 
