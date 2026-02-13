@@ -24,6 +24,7 @@ export async function launchRun(params: {
   prompt: string;
   num_images: number;
   aspect_ratio: string;
+  task_name?: string;
   webhook_url?: string;
 }): Promise<RunResponse> {
   const body = new FormData();
@@ -36,6 +37,9 @@ export async function launchRun(params: {
       aspect_ratio: params.aspect_ratio,
     },
   };
+  if (params.task_name) {
+    initParams.task_name = params.task_name;
+  }
   if (params.webhook_url) {
     initParams.webhook_url = params.webhook_url;
   }
@@ -67,6 +71,7 @@ export async function launchBatch(params: {
   prompts: string[];
   num_images: number;
   aspect_ratio: string;
+  task_name?: string;
   webhook_url?: string;
 }): Promise<RunResponse[]> {
   const results = await Promise.allSettled(
@@ -75,6 +80,7 @@ export async function launchBatch(params: {
         prompt,
         num_images: params.num_images,
         aspect_ratio: params.aspect_ratio,
+        task_name: params.task_name,
         webhook_url: params.webhook_url,
       })
     )

@@ -20,6 +20,21 @@ const statusConfig = {
   failed: { icon: XCircle, color: "text-red-400", bg: "bg-red-400/10" },
 } as const;
 
+function ModeBadge({ taskName }: { taskName?: string }) {
+  const isLifestyle = taskName === "max-image-lifestyle";
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+        isLifestyle
+          ? "bg-purple-400/10 text-purple-400"
+          : "bg-blue-400/10 text-blue-400"
+      }`}
+    >
+      {isLifestyle ? "Lifestyle" : "Product"}
+    </span>
+  );
+}
+
 export function RunHistory() {
   const { data, isLoading, error } = useTrajectories();
 
@@ -56,6 +71,7 @@ export function RunHistory() {
         <thead>
           <tr className="border-b border-neutral-800 bg-neutral-900/50 text-left text-neutral-400">
             <th className="px-4 py-2.5 font-medium">Status</th>
+            <th className="px-4 py-2.5 font-medium">Mode</th>
             <th className="px-4 py-2.5 font-medium">Prompt</th>
             <th className="px-4 py-2.5 font-medium">Created</th>
             <th className="px-4 py-2.5 font-medium">ID</th>
@@ -69,6 +85,7 @@ export function RunHistory() {
             const Icon = cfg.icon;
             const prompt =
               t.init_params?.vars?.prompt ?? "(no prompt)";
+            const taskName = t.init_params?.task_name as string | undefined;
 
             return (
               <tr
@@ -84,6 +101,9 @@ export function RunHistory() {
                     />
                     {t.status}
                   </span>
+                </td>
+                <td className="px-4 py-2.5">
+                  <ModeBadge taskName={taskName} />
                 </td>
                 <td className="max-w-xs truncate px-4 py-2.5 text-neutral-200">
                   <Link

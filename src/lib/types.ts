@@ -1,3 +1,6 @@
+// Mode types
+export type ImageMode = "product" | "lifestyle";
+
 // Jetty API types
 
 export interface Trajectory {
@@ -13,6 +16,7 @@ export interface Trajectory {
       aspect_ratio?: string;
       num_images?: string;
     };
+    task_name?: string;
     [key: string]: unknown;
   };
   attributes?: {

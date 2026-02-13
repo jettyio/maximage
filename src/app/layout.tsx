@@ -3,8 +3,8 @@ import { Providers } from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "max-image-bench",
-  description: "Launch and review max-image-bench runs",
+  title: "Max Image",
+  description: "Launch and review max-image runs",
 };
 
 export default function RootLayout({
@@ -18,7 +18,7 @@ export default function RootLayout({
         <Providers>
           <header className="border-b border-neutral-800 px-6 py-4">
             <a href="/" className="text-lg font-semibold tracking-tight">
-              max-image-bench
+              Max Image
             </a>
           </header>
           <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>

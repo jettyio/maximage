@@ -3,20 +3,45 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Send, Loader2 } from "lucide-react";
+import type { ImageMode } from "@/lib/types";
+
+const modeConfig = {
+  product: {
+    label: "Product",
+    defaultAspect: "4:3",
+    placeholder:
+      "Matte black ceramic coffee mug with minimal handle\nOversized cream wool cardigan on a young woman",
+    description: "Studio product photography — white backgrounds, isolated subjects",
+  },
+  lifestyle: {
+    label: "Lifestyle",
+    defaultAspect: "3:4",
+    placeholder:
+      "Beauty close-up: woman holding skincare jar, dewy skin, soft blue backdrop\nProduct flatlay: curated beauty products on grey linen surface",
+    description: "Editorial lifestyle photography — environmental context, models, mood",
+  },
+} as const;
 
 export function LaunchForm() {
   const router = useRouter();
+  const [mode, setMode] = useState<ImageMode>("product");
   const [prompts, setPrompts] = useState("");
   const [numImages, setNumImages] = useState(1);
   const [aspectRatio, setAspectRatio] = useState("4:3");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const cfg = modeConfig[mode];
   const promptLines = prompts
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean);
   const isBatch = promptLines.length > 1;
+
+  function handleModeChange(newMode: ImageMode) {
+    setMode(newMode);
+    setAspectRatio(modeConfig[newMode].defaultAspect);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,6 +58,7 @@ export function LaunchForm() {
           prompts: promptLines,
           num_images: numImages,
           aspect_ratio: aspectRatio,
+          mode,
         }),
       });
 
@@ -59,6 +85,32 @@ export function LaunchForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Mode toggle */}
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-neutral-300">
+          Mode
+        </label>
+        <div className="flex gap-2">
+          {(["product", "lifestyle"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => handleModeChange(m)}
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                mode === m
+                  ? m === "product"
+                    ? "bg-blue-600 text-white"
+                    : "bg-purple-600 text-white"
+                  : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200"
+              }`}
+            >
+              {modeConfig[m].label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1 text-xs text-neutral-500">{cfg.description}</p>
+      </div>
+
       <div>
         <label className="mb-1.5 block text-sm font-medium text-neutral-300">
           Product prompts{" "}
@@ -70,7 +122,7 @@ export function LaunchForm() {
           value={prompts}
           onChange={(e) => setPrompts(e.target.value)}
           rows={4}
-          placeholder={"Matte black ceramic coffee mug with minimal handle\nOversized cream wool cardigan on a young woman"}
+          placeholder={cfg.placeholder}
           className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
         {isBatch && (
@@ -107,8 +159,8 @@ export function LaunchForm() {
             onChange={(e) => setAspectRatio(e.target.value)}
             className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
-            <option value="4:3">4:3 (products)</option>
-            <option value="3:4">3:4 (fashion)</option>
+            <option value="4:3">4:3 (landscape)</option>
+            <option value="3:4">3:4 (portrait)</option>
             <option value="1:1">1:1 (square)</option>
             <option value="16:9">16:9 (wide)</option>
           </select>
