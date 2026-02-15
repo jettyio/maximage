@@ -163,6 +163,7 @@ export function LaunchForm() {
             <option value="3:4">3:4 (portrait)</option>
             <option value="1:1">1:1 (square)</option>
             <option value="16:9">16:9 (wide)</option>
+            <option value="21:9">21:9 (ultrawide)</option>
           </select>
         </div>
       </div>
