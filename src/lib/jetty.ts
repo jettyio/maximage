@@ -92,10 +92,10 @@ export async function launchBatch(params: {
   });
 }
 
-/** List recent trajectories */
-export async function listTrajectories(
-  limit = 20,
-  page = 1
+/** Fetch a single page of trajectories */
+async function fetchTrajectoriesPage(
+  limit: number,
+  page: number
 ): Promise<TrajectoryListResponse> {
   const res = await fetch(
     `${FLOWS_API}/db/trajectories/${COLLECTION}/${TASK}?limit=${limit}&page=${page}`,
@@ -108,6 +108,42 @@ export async function listTrajectories(
   }
 
   return res.json();
+}
+
+/** List recent trajectories, paginating automatically to reach the requested count */
+export async function listTrajectories(
+  limit = 200,
+  page = 1
+): Promise<TrajectoryListResponse> {
+  const PAGE_SIZE = 50;
+
+  if (limit <= PAGE_SIZE) {
+    return fetchTrajectoriesPage(limit, page);
+  }
+
+  const allTrajectories: Trajectory[] = [];
+  let currentPage = page;
+  let remaining = limit;
+  let total = 0;
+
+  while (remaining > 0) {
+    const batchSize = Math.min(remaining, PAGE_SIZE);
+    const data = await fetchTrajectoriesPage(batchSize, currentPage);
+    total = data.total;
+    allTrajectories.push(...data.trajectories);
+    remaining -= data.trajectories.length;
+    currentPage++;
+
+    if (!data.has_more || data.trajectories.length === 0) break;
+  }
+
+  return {
+    trajectories: allTrajectories,
+    total,
+    page,
+    limit,
+    has_more: allTrajectories.length < total,
+  };
 }
 
 /** Get a single trajectory */

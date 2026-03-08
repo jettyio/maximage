@@ -3,7 +3,7 @@ import { listTrajectories } from "@/lib/jetty";
 
 export async function GET(req: NextRequest) {
   try {
-    const limit = Number(req.nextUrl.searchParams.get("limit") ?? "20");
+    const limit = Number(req.nextUrl.searchParams.get("limit") ?? "200");
     const page = Number(req.nextUrl.searchParams.get("page") ?? "1");
     const data = await listTrajectories(limit, page);
     return NextResponse.json(data);

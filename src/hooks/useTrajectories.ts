@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { TrajectoryListResponse } from "@/lib/types";
 
-export function useTrajectories(limit = 20) {
+export function useTrajectories(limit = 200) {
   return useQuery<TrajectoryListResponse>({
     queryKey: ["trajectories", limit],
     queryFn: async () => {
