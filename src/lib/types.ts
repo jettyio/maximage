@@ -99,12 +99,14 @@ export interface ScoreEntry {
   filename: string;
   aspect_ratio: string;
   rounds: number;
-  final_style_judgment: string;
-  final_style_explanation: string;
-  final_quality_judgment: string;
-  final_quality_explanation: string;
+  final_quality_judgment?: string | null;
+  final_quality_score?: number | null;
+  final_quality_explanation?: string | null;
+  final_style_judgment?: string;
+  final_style_explanation?: string;
   trajectory_id: string;
   used_file_upload: boolean;
+  [key: string]: unknown;
 }
 
 // Launch form types

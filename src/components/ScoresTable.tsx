@@ -4,24 +4,36 @@ import { useEffect, useState } from "react";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 import type { ScoresJson, ScoreEntry } from "@/lib/types";
 
-function JudgeBadge({ value }: { value: string }) {
-  const pass = value === "yes";
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-        pass
-          ? "bg-green-400/10 text-green-400"
-          : "bg-red-400/10 text-red-400"
-      }`}
-    >
-      {pass ? (
-        <CheckCircle2 className="h-3 w-3" />
-      ) : (
-        <XCircle className="h-3 w-3" />
-      )}
-      {pass ? "Pass" : "Fail"}
-    </span>
-  );
+function ScoreBadge({ score, judgment }: { score?: number | null; judgment?: string | null }) {
+  if (score != null) {
+    const color =
+      score >= 4.5
+        ? "bg-green-400/10 text-green-400"
+        : score >= 3.5
+          ? "bg-yellow-400/10 text-yellow-400"
+          : "bg-red-400/10 text-red-400";
+    const Icon = score >= 4 ? CheckCircle2 : XCircle;
+    return (
+      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${color}`}>
+        <Icon className="h-3 w-3" />
+        {score}/5
+      </span>
+    );
+  }
+  if (judgment) {
+    const pass = judgment === "yes";
+    return (
+      <span
+        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+          pass ? "bg-green-400/10 text-green-400" : "bg-red-400/10 text-red-400"
+        }`}
+      >
+        {pass ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+        {pass ? "Pass" : "Fail"}
+      </span>
+    );
+  }
+  return <span className="text-xs text-neutral-500">—</span>;
 }
 
 export function ScoresTable({ filePath }: { filePath: string }) {
@@ -85,7 +97,6 @@ export function ScoresTable({ filePath }: { filePath: string }) {
             <tr className="border-b border-neutral-800 bg-neutral-900/50 text-left text-neutral-400">
               <th className="px-3 py-2 font-medium">#</th>
               <th className="px-3 py-2 font-medium">Product</th>
-              <th className="px-3 py-2 font-medium">Style</th>
               <th className="px-3 py-2 font-medium">Quality</th>
               <th className="px-3 py-2 font-medium">Rounds</th>
             </tr>
@@ -104,10 +115,7 @@ export function ScoresTable({ filePath }: { filePath: string }) {
                   {img.product_description}
                 </td>
                 <td className="px-3 py-2">
-                  <JudgeBadge value={img.final_style_judgment} />
-                </td>
-                <td className="px-3 py-2">
-                  <JudgeBadge value={img.final_quality_judgment} />
+                  <ScoreBadge score={img.final_quality_score} judgment={img.final_quality_judgment} />
                 </td>
                 <td className="px-3 py-2 text-neutral-400">{img.rounds}</td>
               </tr>

@@ -6,6 +6,7 @@ import { RunStatusBanner } from "@/components/RunStatusBanner";
 import { ImageGallery } from "@/components/ImageGallery";
 import { SummaryReport } from "@/components/SummaryReport";
 import { ScoresTable } from "@/components/ScoresTable";
+import { JudgeResults } from "@/components/JudgeResults";
 import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import type { Trajectory } from "@/lib/types";
@@ -102,6 +103,8 @@ function TrajectoryView({ id }: { id: string }) {
         </section>
       )}
 
+      {isComplete && <JudgeResults trajectory={trajectory} />}
+
       {isComplete && summaryPath && (
         <section>
           <h3 className="mb-3 text-lg font-medium">Summary report</h3>
@@ -111,7 +114,7 @@ function TrajectoryView({ id }: { id: string }) {
 
       {isComplete && scoresPath && (
         <section>
-          <h3 className="mb-3 text-lg font-medium">Scores</h3>
+          <h3 className="mb-3 text-lg font-medium">Detailed scores</h3>
           <ScoresTable filePath={scoresPath} />
         </section>
       )}
