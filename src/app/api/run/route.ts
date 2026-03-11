@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { launchRun, launchBatch } from "@/lib/jetty";
+import { launchBatch } from "@/lib/jetty";
 import type { ImageMode } from "@/lib/types";
 
 export async function POST(req: NextRequest) {
@@ -29,26 +29,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (promptList.length === 1) {
-      const run = await launchRun({
-        prompt: promptList[0],
-        num_images,
-        aspect_ratio,
-        mode: imageMode,
-      });
-      return NextResponse.json({
-        batch_id: run.trajectory_id,
-        runs: [run],
-      });
-    }
-
-    // Batch: fire all in parallel
+    // Always use batch — expands prompts × num_images into parallel fast runs
     const runs = await launchBatch({
       prompts: promptList,
       num_images,
       aspect_ratio,
       mode: imageMode,
     });
+
     return NextResponse.json({
       batch_id: runs[0].trajectory_id,
       runs,

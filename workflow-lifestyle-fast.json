@@ -1,0 +1,71 @@
+{
+  "name": "jettyio/max-image-lifestyle-fast",
+  "version": "1.0.0",
+  "description": "Fast lifestyle image generation — no agent, 2 fixed rounds of generate+judge with automatic prompt refinement.",
+  "init_params": {
+    "prompt": "",
+    "aspect_ratio": "3:4"
+  },
+  "steps": [
+    "craft_prompt",
+    "generate_image",
+    "judge_quality",
+    "refine_prompt",
+    "generate_image_2",
+    "judge_quality_2"
+  ],
+  "step_configs": {
+    "craft_prompt": {
+      "activity": "litellm_chat",
+      "model": "gpt-4o-mini",
+      "temperature": 0.8,
+      "max_tokens": 400,
+      "system_prompt": "You are an expert art director for premium lifestyle and editorial photography (think Glossier, Aesop, Nike campaigns, Goop editorial). Given a product or scene description, write a detailed image generation prompt that produces a lifestyle photograph matching this EXACT style:\n\n- Rich environmental context: colored backdrops, textured surfaces, natural settings, or styled scenes — NEVER white/plain studio backgrounds\n- Product shown IN CONTEXT — on a surface, held by a person, in a scene\n- Natural or editorial lighting with intentional mood: golden hour warmth, soft window light, dramatic directional studio light, candlelit warmth\n- Color temperature is intentional: warm amber for luxury, cool blue for clinical/fresh, mixed for editorial drama\n- Shadows add dimension: natural shadows from window light, soft gradient shadows — never clinical flat lighting\n- Editorial composition: rule of thirds, intentional depth of field, cinematic framing\n- Close-ups and detail shots encouraged: beauty close-ups, product textures, hands holding products\n- Rich intentional color palette: warm amber, cool blue, earth tones, jewel tones — no clinical white, no neon\n- For beauty/fashion: authentic models with realistic skin texture, natural expressions, diverse representation\n- High material fidelity — product labels legible, surface materials realistic\n- Magazine-quality: could appear in Vogue, GQ, or a premium brand campaign\n- Styled but not over-produced — aspirational yet attainable\n- No AI artifacts: correct finger count, no garbled text, no uncanny valley\n\nOutput ONLY the image generation prompt, no commentary or explanation. Keep under 200 words.",
+      "prompt_path": "init_params.prompt"
+    },
+    "generate_image": {
+      "activity": "gemini_image_generator",
+      "model": "gemini-3-pro-image-preview",
+      "num_images": 1,
+      "prompt_path": "craft_prompt.outputs.text",
+      "negative_prompt": "white background, plain background, studio background, flat lighting, clinical lighting, stock photo, neon colors, CGI, illustration, watermark, text overlay, harsh flash, overprocessed, HDR, oversaturated",
+      "aspect_ratio_path": "init_params.aspect_ratio"
+    },
+    "judge_quality": {
+      "activity": "simple_judge",
+      "model": "gpt-5-mini",
+      "item_path": "generate_image.outputs.images[0].path",
+      "instruction": "Evaluate this lifestyle/editorial photograph for premium brand quality (Glossier, Aesop, Nike campaign tier). Score 1-5. Evaluate: 1) Environmental Context — rich, intentional background/setting? 2) Lighting & Mood — natural/editorial with intentional color temperature? 3) Composition — editorial framing, depth of field, rule of thirds? 4) Materials & Textures — realistic, tactile quality? 5) Color Palette — rich, intentional, mood-setting? 6) Human Presence (if applicable) — authentic, natural expression, realistic skin? 7) Overall Cohesion — magazine-worthy editorial quality? For each dimension, explain your assessment. Then give overall score and identify specific issues with suggestions for prompt revision.",
+      "judge_type": "scale",
+      "scale_range": [1, 5],
+      "temperature": 1,
+      "explanation_required": true
+    },
+    "refine_prompt": {
+      "activity": "litellm_chat",
+      "model": "gpt-4o-mini",
+      "temperature": 0.8,
+      "max_tokens": 400,
+      "system_prompt": "You are an expert art director refining image generation prompts for lifestyle/editorial photography. You will receive quality feedback from a judge about a lifestyle photograph. Analyze the feedback and write an improved image generation prompt that addresses all identified issues while preserving what worked well. Maintain the premium lifestyle aesthetic: rich environmental context (NEVER white backgrounds), natural/editorial lighting with intentional mood, editorial composition with depth of field, rich intentional color palette, magazine-quality realism. Output ONLY the revised prompt, no commentary. Keep under 200 words.",
+      "prompt_path": "judge_quality.outputs.results[0].explanation"
+    },
+    "generate_image_2": {
+      "activity": "gemini_image_generator",
+      "model": "gemini-3-pro-image-preview",
+      "num_images": 1,
+      "prompt_path": "refine_prompt.outputs.text",
+      "negative_prompt": "white background, plain background, studio background, flat lighting, clinical lighting, stock photo, neon colors, CGI, illustration, watermark, text overlay, harsh flash, overprocessed, HDR, oversaturated",
+      "aspect_ratio_path": "init_params.aspect_ratio"
+    },
+    "judge_quality_2": {
+      "activity": "simple_judge",
+      "model": "gpt-5-mini",
+      "item_path": "generate_image_2.outputs.images[0].path",
+      "instruction": "Evaluate this lifestyle/editorial photograph for premium brand quality (Glossier, Aesop, Nike campaign tier). Score 1-5. Evaluate: 1) Environmental Context — rich, intentional background/setting? 2) Lighting & Mood — natural/editorial with intentional color temperature? 3) Composition — editorial framing, depth of field, rule of thirds? 4) Materials & Textures — realistic, tactile quality? 5) Color Palette — rich, intentional, mood-setting? 6) Human Presence (if applicable) — authentic, natural expression, realistic skin? 7) Overall Cohesion — magazine-worthy editorial quality? For each dimension, explain your assessment. Then give overall score and identify specific issues with suggestions for prompt revision.",
+      "judge_type": "scale",
+      "scale_range": [1, 5],
+      "temperature": 1,
+      "explanation_required": true
+    }
+  }
+}

@@ -5,19 +5,20 @@ import type {
   RunResponse,
   ImageMode,
 } from "./types";
-import { PRODUCT_RUNBOOK } from "./runbook-product";
-import { LIFESTYLE_RUNBOOK } from "./runbook-lifestyle";
 
 const FLOWS_API = "https://flows-api.jetty.io/api/v1";
 const COLLECTION = "jettyio";
 
-const TASK_MAP: Record<ImageMode, { task: string; runbook: string }> = {
-  product: { task: "max-image-product", runbook: PRODUCT_RUNBOOK },
-  lifestyle: { task: "max-image-lifestyle", runbook: LIFESTYLE_RUNBOOK },
+/** Fast workflow tasks — one run = one image, no agent overhead */
+const FAST_TASK: Record<ImageMode, string> = {
+  product: "max-image-product-fast",
+  lifestyle: "max-image-lifestyle-fast",
 };
 
-/** Fast workflow for single-image product runs (no agent, ~90s vs ~340s) */
-const FAST_PRODUCT_TASK = "max-image-product-fast";
+/** Legacy agent tasks — kept for fetching old trajectories */
+const LEGACY_TASKS = ["max-image-product", "max-image-lifestyle"];
+
+const ALL_TASKS = [...Object.values(FAST_TASK), ...LEGACY_TASKS];
 
 function getToken(): string {
   const token = process.env.JETTY_API_TOKEN;
@@ -29,46 +30,24 @@ function headers(): HeadersInit {
   return { Authorization: `Bearer ${getToken()}` };
 }
 
-/** Launch a single run. Uses the fast workflow for single-image product runs. */
+/** Launch a single fast workflow run (produces 1 image). */
 export async function launchRun(params: {
   prompt: string;
-  num_images: number;
   aspect_ratio: string;
   mode?: ImageMode;
-  webhook_url?: string;
 }): Promise<RunResponse> {
   const mode = params.mode ?? "product";
-  const useFast = mode === "product" && params.num_images === 1;
+  const task = FAST_TASK[mode];
 
   const body = new FormData();
   body.append("bakery_host", "https://dock.jetty.io");
-
-  let task: string;
-  if (useFast) {
-    // Fast path: no agent, direct workflow steps
-    task = FAST_PRODUCT_TASK;
-    const initParams: Record<string, unknown> = {
+  body.append(
+    "init_params",
+    JSON.stringify({
       prompt: params.prompt,
       aspect_ratio: params.aspect_ratio,
-    };
-    body.append("init_params", JSON.stringify(initParams));
-  } else {
-    // Agent path: runbook with iterative refinement
-    const { task: agentTask, runbook } = TASK_MAP[mode];
-    task = agentTask;
-    const initParams: Record<string, unknown> = {
-      instruction: runbook,
-      vars: {
-        prompt: params.prompt,
-        num_images: String(params.num_images),
-        aspect_ratio: params.aspect_ratio,
-      },
-    };
-    if (params.webhook_url) {
-      initParams.webhook_url = params.webhook_url;
-    }
-    body.append("init_params", JSON.stringify(initParams));
-  }
+    })
+  );
 
   const res = await fetch(`${FLOWS_API}/run/${COLLECTION}/${task}`, {
     method: "POST",
@@ -83,7 +62,7 @@ export async function launchRun(params: {
 
   const raw: RawRunResponse = await res.json();
 
-  // workflow_id is like "jettyio-max-image-product--8534af33"
+  // workflow_id is like "jettyio-max-image-product-fast--8534af33"
   // trajectory_id is the part after "--"
   const parts = raw.workflow_id.split("--");
   const trajectory_id = parts[parts.length - 1];
@@ -91,22 +70,27 @@ export async function launchRun(params: {
   return { trajectory_id, workflow_id: raw.workflow_id };
 }
 
-/** Launch a batch of runs in parallel */
+/** Launch multiple runs in parallel (one per prompt × num_images). */
 export async function launchBatch(params: {
   prompts: string[];
   num_images: number;
   aspect_ratio: string;
   mode?: ImageMode;
-  webhook_url?: string;
 }): Promise<RunResponse[]> {
+  // Expand: each prompt gets num_images parallel runs
+  const jobs: { prompt: string }[] = [];
+  for (const prompt of params.prompts) {
+    for (let i = 0; i < params.num_images; i++) {
+      jobs.push({ prompt });
+    }
+  }
+
   const results = await Promise.allSettled(
-    params.prompts.map((prompt) =>
+    jobs.map((job) =>
       launchRun({
-        prompt,
-        num_images: params.num_images,
+        prompt: job.prompt,
         aspect_ratio: params.aspect_ratio,
         mode: params.mode,
-        webhook_url: params.webhook_url,
       })
     )
   );
@@ -116,12 +100,6 @@ export async function launchBatch(params: {
     throw new Error(`Run ${i} failed: ${r.reason}`);
   });
 }
-
-const ALL_TASKS = [
-  FAST_PRODUCT_TASK,
-  TASK_MAP.product.task,
-  TASK_MAP.lifestyle.task,
-];
 
 /** Fetch a single page of trajectories for a specific task */
 async function fetchTrajectoriesPage(
@@ -142,7 +120,7 @@ async function fetchTrajectoriesPage(
   return res.json();
 }
 
-/** List recent trajectories from both tasks, merged and sorted */
+/** List recent trajectories from all tasks, merged and sorted */
 export async function listTrajectories(
   limit = 200,
   page = 1
@@ -174,7 +152,7 @@ export async function listTrajectories(
   };
 }
 
-/** Get a single trajectory (tries both tasks) */
+/** Get a single trajectory (tries all tasks) */
 export async function getTrajectory(
   trajectoryId: string
 ): Promise<Trajectory> {
