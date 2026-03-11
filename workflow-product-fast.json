@@ -1,0 +1,71 @@
+{
+  "name": "jettyio/max-image-product-fast",
+  "version": "1.0.0",
+  "description": "Fast product image generation — no agent, 2 fixed rounds of generate+judge with automatic prompt refinement.",
+  "init_params": {
+    "prompt": "",
+    "aspect_ratio": "4:3"
+  },
+  "steps": [
+    "craft_prompt",
+    "generate_image",
+    "judge_quality",
+    "refine_prompt",
+    "generate_image_2",
+    "judge_quality_2"
+  ],
+  "step_configs": {
+    "craft_prompt": {
+      "activity": "litellm_chat",
+      "model": "gpt-4o-mini",
+      "temperature": 0.8,
+      "max_tokens": 400,
+      "system_prompt": "You are an expert art director for a premium e-commerce marketplace (like Ssense, Need Supply, Goop). Given a product description, write a detailed image generation prompt that produces a studio product photograph matching this EXACT style:\n\n- Pure white background, no environment or context whatsoever\n- Single isolated subject, three-quarter angle for products, full-body for fashion/people\n- Soft diffused studio lighting from upper-left, large softbox feel\n- Gentle drop shadow falling to lower-right, medium opacity, diffused edges — never harsh, never absent\n- Generous negative space around subject (30-50% margin on all sides)\n- Full subject visible, never cropped by frame edges\n- High material/texture fidelity — leather grain, fabric weave, metal brushing, knit texture all clearly visible\n- Muted, desaturated, organic color palette — warm-shifted even for bold colors, no neon or electric hues\n- Matte-to-satin surface rendering, no harsh specular highlights or blown-out hotspots\n- No props, no text overlays, no background elements, no lifestyle context\n- Photorealistic — must look like actual studio photography shot on a medium-format camera, not CGI or illustration\n- Clean silhouette edges against white background\n- For fashion/people: natural relaxed editorial pose, contemporary styling, elevated casual aesthetic\n\nOutput ONLY the image generation prompt, no commentary or explanation. Keep under 200 words.",
+      "prompt_path": "init_params.prompt"
+    },
+    "generate_image": {
+      "activity": "gemini_image_generator",
+      "model": "gemini-3-pro-image-preview",
+      "num_images": 1,
+      "prompt_path": "craft_prompt.outputs.text",
+      "negative_prompt": "colored background, dramatic lighting, multiple objects, text overlay, watermark, neon colors, flat-lay, overhead view, environmental context, lifestyle setting, CGI, illustration, harsh shadows, blown-out highlights, visible studio equipment, floor or surface visible",
+      "aspect_ratio_path": "init_params.aspect_ratio"
+    },
+    "judge_quality": {
+      "activity": "simple_judge",
+      "model": "gpt-5-mini",
+      "item_path": "generate_image.outputs.images[0].path",
+      "instruction": "Evaluate this product photograph for premium e-commerce quality (Ssense, Need Supply, Goop tier). Score 1-5. Evaluate: 1) Materials & Textures — tactile and real or plastic/CGI? 2) Lighting — soft, even, professional? 3) Shadows — natural, grounding, correct? 4) Proportions — believable? 5) Cohesion — feels like a real photograph? 6) Color — muted, elevated? 7) Edge Quality — clean separation from background? For each dimension, explain your assessment. Then give overall score and identify specific issues with suggestions for prompt revision.",
+      "judge_type": "scale",
+      "scale_range": [1, 5],
+      "temperature": 1,
+      "explanation_required": true
+    },
+    "refine_prompt": {
+      "activity": "litellm_chat",
+      "model": "gpt-4o-mini",
+      "temperature": 0.8,
+      "max_tokens": 400,
+      "system_prompt": "You are an expert art director refining image generation prompts. You will receive quality feedback from a judge about a product photograph. Analyze the feedback and write an improved image generation prompt that addresses all identified issues while preserving what worked well. Maintain the premium e-commerce aesthetic: pure white background, soft diffused studio lighting from upper-left, three-quarter angle, gentle drop shadow, generous negative space, high material fidelity, muted organic colors, photorealistic medium-format camera look. Output ONLY the revised prompt, no commentary. Keep under 200 words.",
+      "prompt_path": "judge_quality.outputs.results[0].explanation"
+    },
+    "generate_image_2": {
+      "activity": "gemini_image_generator",
+      "model": "gemini-3-pro-image-preview",
+      "num_images": 1,
+      "prompt_path": "refine_prompt.outputs.text",
+      "negative_prompt": "colored background, dramatic lighting, multiple objects, text overlay, watermark, neon colors, flat-lay, overhead view, environmental context, lifestyle setting, CGI, illustration, harsh shadows, blown-out highlights, visible studio equipment, floor or surface visible",
+      "aspect_ratio_path": "init_params.aspect_ratio"
+    },
+    "judge_quality_2": {
+      "activity": "simple_judge",
+      "model": "gpt-5-mini",
+      "item_path": "generate_image_2.outputs.images[0].path",
+      "instruction": "Evaluate this product photograph for premium e-commerce quality (Ssense, Need Supply, Goop tier). Score 1-5. Evaluate: 1) Materials & Textures — tactile and real or plastic/CGI? 2) Lighting — soft, even, professional? 3) Shadows — natural, grounding, correct? 4) Proportions — believable? 5) Cohesion — feels like a real photograph? 6) Color — muted, elevated? 7) Edge Quality — clean separation from background? For each dimension, explain your assessment. Then give overall score and identify specific issues with suggestions for prompt revision.",
+      "judge_type": "scale",
+      "scale_range": [1, 5],
+      "temperature": 1,
+      "explanation_required": true
+    }
+  }
+}

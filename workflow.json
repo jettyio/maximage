@@ -4,7 +4,7 @@
   "description": "Premium e-commerce product image generation with iterative refinement via dual judges. Accepts runbook instruction at runtime.",
   "init_params": {
     "agent": "claude-code",
-    "model": "claude-sonnet-4-6",
+    "model": "claude-haiku-4-5",
     "instruction": "",
     "vars": {
       "prompt": "",

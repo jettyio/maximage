@@ -11,28 +11,44 @@ import Link from "next/link";
 import type { Trajectory } from "@/lib/types";
 
 function extractImages(trajectory: Trajectory) {
-  // The "images" step collects only images; use it exclusively to avoid
-  // duplicates from the "tbench" step which also lists every file.
-  const imagesStep = trajectory.steps?.images;
-  if (!imagesStep) return [];
+  const steps = trajectory.steps;
+  if (!steps) return [];
 
-  const files = (imagesStep.outputs as Record<string, unknown> | undefined)
-    ?.files as { path: string; content_type?: string }[] | undefined;
-  if (!Array.isArray(files)) return [];
+  // 1. Agent workflows: select_images step collects image files
+  const selectStep = steps.select_images ?? steps.images;
+  if (selectStep) {
+    const files = (selectStep.outputs as Record<string, unknown> | undefined)
+      ?.files as { path: string; content_type?: string }[] | undefined;
+    if (Array.isArray(files) && files.length > 0) {
+      return files
+        .filter(
+          (f) =>
+            f.path &&
+            (f.content_type?.startsWith("image/") ||
+              /\.(jpg|jpeg|png|webp|gif)$/i.test(f.path))
+        )
+        .map((f) => ({ path: f.path }));
+    }
+  }
 
-  return files
-    .filter(
-      (f) =>
-        f.path &&
-        (f.content_type?.startsWith("image/") ||
-          /\.(jpg|jpeg|png|webp|gif)$/i.test(f.path))
-    )
-    .map((f) => ({ path: f.path }));
+  // 2. Fast workflow: images are directly on generate_image steps
+  const images: { path: string }[] = [];
+  for (const stepName of Object.keys(steps)) {
+    if (!stepName.startsWith("generate_image")) continue;
+    const outputs = steps[stepName].outputs as Record<string, unknown> | undefined;
+    const imgList = outputs?.images as { path: string }[] | undefined;
+    if (Array.isArray(imgList)) {
+      for (const img of imgList) {
+        if (img.path) images.push({ path: img.path });
+      }
+    }
+  }
+  return images;
 }
 
 function extractReportPaths(trajectory: Trajectory) {
-  // Reports are collected by the "reports" step
-  const reportsStep = trajectory.steps?.reports;
+  // Reports are collected by select_reports (or legacy "reports") step
+  const reportsStep = trajectory.steps?.select_reports ?? trajectory.steps?.reports;
   const files = (reportsStep?.outputs as Record<string, unknown> | undefined)
     ?.files as { path: string }[] | undefined;
 

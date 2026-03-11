@@ -16,6 +16,9 @@ const TASK_MAP: Record<ImageMode, { task: string; runbook: string }> = {
   lifestyle: { task: "max-image-lifestyle", runbook: LIFESTYLE_RUNBOOK },
 };
 
+/** Fast workflow for single-image product runs (no agent, ~90s vs ~340s) */
+const FAST_PRODUCT_TASK = "max-image-product-fast";
+
 function getToken(): string {
   const token = process.env.JETTY_API_TOKEN;
   if (!token) throw new Error("JETTY_API_TOKEN is not set");
@@ -26,7 +29,7 @@ function headers(): HeadersInit {
   return { Authorization: `Bearer ${getToken()}` };
 }
 
-/** Launch a single run, POSTing the runbook instruction inline */
+/** Launch a single run. Uses the fast workflow for single-image product runs. */
 export async function launchRun(params: {
   prompt: string;
   num_images: number;
@@ -35,23 +38,37 @@ export async function launchRun(params: {
   webhook_url?: string;
 }): Promise<RunResponse> {
   const mode = params.mode ?? "product";
-  const { task, runbook } = TASK_MAP[mode];
+  const useFast = mode === "product" && params.num_images === 1;
 
   const body = new FormData();
   body.append("bakery_host", "https://dock.jetty.io");
 
-  const initParams: Record<string, unknown> = {
-    instruction: runbook,
-    vars: {
+  let task: string;
+  if (useFast) {
+    // Fast path: no agent, direct workflow steps
+    task = FAST_PRODUCT_TASK;
+    const initParams: Record<string, unknown> = {
       prompt: params.prompt,
-      num_images: String(params.num_images),
       aspect_ratio: params.aspect_ratio,
-    },
-  };
-  if (params.webhook_url) {
-    initParams.webhook_url = params.webhook_url;
+    };
+    body.append("init_params", JSON.stringify(initParams));
+  } else {
+    // Agent path: runbook with iterative refinement
+    const { task: agentTask, runbook } = TASK_MAP[mode];
+    task = agentTask;
+    const initParams: Record<string, unknown> = {
+      instruction: runbook,
+      vars: {
+        prompt: params.prompt,
+        num_images: String(params.num_images),
+        aspect_ratio: params.aspect_ratio,
+      },
+    };
+    if (params.webhook_url) {
+      initParams.webhook_url = params.webhook_url;
+    }
+    body.append("init_params", JSON.stringify(initParams));
   }
-  body.append("init_params", JSON.stringify(initParams));
 
   const res = await fetch(`${FLOWS_API}/run/${COLLECTION}/${task}`, {
     method: "POST",
@@ -100,7 +117,11 @@ export async function launchBatch(params: {
   });
 }
 
-const ALL_TASKS = [TASK_MAP.product.task, TASK_MAP.lifestyle.task];
+const ALL_TASKS = [
+  FAST_PRODUCT_TASK,
+  TASK_MAP.product.task,
+  TASK_MAP.lifestyle.task,
+];
 
 /** Fetch a single page of trajectories for a specific task */
 async function fetchTrajectoriesPage(

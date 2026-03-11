@@ -263,10 +263,18 @@ Save all results to \`/app/results/\`:
 - \`summary.md\` — comprehensive report with results table, aggregate metrics, and lessons learned
 - \`scores.json\` — structured per-variation data with judge results and trajectory IDs
 
+## CRITICAL: Performance Rules
+
+- **Do NOT use TodoWrite** — it wastes time. Track progress mentally, not with tools.
+- **Do NOT use ToolSearch** — you already know all the tools you need (Bash, Write).
+- **Polling strategy**: Wait 40 seconds before first poll, then poll every 10 seconds. Do NOT use \`sleep 20\` or \`sleep 30\` — workflows typically complete in 45-55 seconds.
+- **Be concise**: Skip explanations and commentary. Just execute the workflow steps efficiently.
+- **Launch all variations in parallel first**, then poll for all of them.
+
 ## Tips
 
 - **The workflow handles prompt crafting internally** — your product/scene description gets expanded by an art director LLM before generation. But for refinement rounds, you can pass a more detailed/specific prompt directly.
-- **Workflows take 30-60 seconds** — launch multiple in parallel by starting them all, then polling for results.
+- **Workflows take 45-55 seconds** — launch multiple in parallel by starting them all, then poll after 40s, then every 10s.
 - **Judge explanations are your refinement roadmap** — read them carefully to understand what to fix.
 - **For beauty shots, be very specific about the model** — include ethnicity, build, hair description, and pose. Vary these across products.
 - **Default aspect ratio is \`3:4\` (portrait)** for lifestyle — this works better for beauty close-ups and editorial shots.

@@ -63,11 +63,14 @@ export function RunStatusBanner({
           {trajectory.trajectory_id}
         </span>
       </div>
-      {trajectory.init_params?.vars?.prompt && (
-        <p className="mt-1.5 text-sm text-neutral-300">
-          {trajectory.init_params.vars.prompt}
-        </p>
-      )}
+      {(() => {
+        const prompt =
+          trajectory.init_params?.vars?.prompt ??
+          (trajectory.init_params?.prompt as string | undefined);
+        return prompt ? (
+          <p className="mt-1.5 text-sm text-neutral-300">{prompt}</p>
+        ) : null;
+      })()}
     </div>
   );
 }

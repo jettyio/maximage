@@ -84,7 +84,9 @@ export function RunHistory() {
               statusConfig.pending;
             const Icon = cfg.icon;
             const prompt =
-              t.init_params?.vars?.prompt ?? "(no prompt)";
+              t.init_params?.vars?.prompt ??
+              (t.init_params?.prompt as string) ??
+              "(no prompt)";
             const taskName = t.name;
 
             return (
