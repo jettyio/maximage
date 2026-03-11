@@ -1,0 +1,45 @@
+{
+  "name": "jettyio/max-image-product",
+  "version": "1.1.0",
+  "description": "Premium e-commerce product image generation with iterative refinement via dual judges. Accepts runbook instruction at runtime.",
+  "init_params": {
+    "agent": "claude-code",
+    "model": "claude-sonnet-4-6",
+    "instruction": "",
+    "vars": {
+      "prompt": "",
+      "num_images": "1",
+      "aspect_ratio": "4:3"
+    }
+  },
+  "step_configs": {
+    "generate": {
+      "activity": "runbook",
+      "instruction_path": "init_params.instruction",
+      "agent_path": "init_params.agent",
+      "model_path": "init_params.model",
+      "template_variables_path": "init_params.vars",
+      "langfuse_tracing": true,
+      "agent_env": {
+        "JETTY_API_TOKEN": "mlc_3hje7c3az5j9s4mo5cdd4zps46qan13i"
+      },
+      "timeout_sec": 3600,
+      "cpus": 4,
+      "memory": "8G",
+      "network_enabled": true
+    },
+    "select_images": {
+      "activity": "select_files",
+      "patterns": ["*.jpg", "*.jpeg", "*.png", "*.webp"],
+      "files_path": "generate.outputs.files",
+      "match_field": "path"
+    },
+    "select_reports": {
+      "activity": "select_files",
+      "patterns": ["*summary.md", "*scores.json"],
+      "files_path": "generate.outputs.files",
+      "match_field": "path"
+    }
+  },
+  "steps": ["generate", "select_images", "select_reports"]
+}

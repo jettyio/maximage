@@ -3,11 +3,18 @@ import type {
   TrajectoryListResponse,
   RawRunResponse,
   RunResponse,
+  ImageMode,
 } from "./types";
+import { PRODUCT_RUNBOOK } from "./runbook-product";
+import { LIFESTYLE_RUNBOOK } from "./runbook-lifestyle";
 
 const FLOWS_API = "https://flows-api.jetty.io/api/v1";
 const COLLECTION = "jettyio";
-const TASK = "max-image-bench";
+
+const TASK_MAP: Record<ImageMode, { task: string; runbook: string }> = {
+  product: { task: "max-image-product", runbook: PRODUCT_RUNBOOK },
+  lifestyle: { task: "max-image-lifestyle", runbook: LIFESTYLE_RUNBOOK },
+};
 
 function getToken(): string {
   const token = process.env.JETTY_API_TOKEN;
@@ -19,33 +26,34 @@ function headers(): HeadersInit {
   return { Authorization: `Bearer ${getToken()}` };
 }
 
-/** Launch a single bench run */
+/** Launch a single run, POSTing the runbook instruction inline */
 export async function launchRun(params: {
   prompt: string;
   num_images: number;
   aspect_ratio: string;
-  task_name?: string;
+  mode?: ImageMode;
   webhook_url?: string;
 }): Promise<RunResponse> {
+  const mode = params.mode ?? "product";
+  const { task, runbook } = TASK_MAP[mode];
+
   const body = new FormData();
   body.append("bakery_host", "https://dock.jetty.io");
 
   const initParams: Record<string, unknown> = {
+    instruction: runbook,
     vars: {
       prompt: params.prompt,
       num_images: String(params.num_images),
       aspect_ratio: params.aspect_ratio,
     },
   };
-  if (params.task_name) {
-    initParams.task_name = params.task_name;
-  }
   if (params.webhook_url) {
     initParams.webhook_url = params.webhook_url;
   }
   body.append("init_params", JSON.stringify(initParams));
 
-  const res = await fetch(`${FLOWS_API}/run/${COLLECTION}/${TASK}`, {
+  const res = await fetch(`${FLOWS_API}/run/${COLLECTION}/${task}`, {
     method: "POST",
     headers: headers(),
     body,
@@ -58,7 +66,7 @@ export async function launchRun(params: {
 
   const raw: RawRunResponse = await res.json();
 
-  // workflow_id is like "jettyio-max-image-bench--8534af33"
+  // workflow_id is like "jettyio-max-image-product--8534af33"
   // trajectory_id is the part after "--"
   const parts = raw.workflow_id.split("--");
   const trajectory_id = parts[parts.length - 1];
@@ -71,7 +79,7 @@ export async function launchBatch(params: {
   prompts: string[];
   num_images: number;
   aspect_ratio: string;
-  task_name?: string;
+  mode?: ImageMode;
   webhook_url?: string;
 }): Promise<RunResponse[]> {
   const results = await Promise.allSettled(
@@ -80,7 +88,7 @@ export async function launchBatch(params: {
         prompt,
         num_images: params.num_images,
         aspect_ratio: params.aspect_ratio,
-        task_name: params.task_name,
+        mode: params.mode,
         webhook_url: params.webhook_url,
       })
     )
@@ -92,13 +100,16 @@ export async function launchBatch(params: {
   });
 }
 
-/** Fetch a single page of trajectories */
+const ALL_TASKS = [TASK_MAP.product.task, TASK_MAP.lifestyle.task];
+
+/** Fetch a single page of trajectories for a specific task */
 async function fetchTrajectoriesPage(
+  task: string,
   limit: number,
   page: number
 ): Promise<TrajectoryListResponse> {
   const res = await fetch(
-    `${FLOWS_API}/db/trajectories/${COLLECTION}/${TASK}?limit=${limit}&page=${page}`,
+    `${FLOWS_API}/db/trajectories/${COLLECTION}/${task}?limit=${limit}&page=${page}`,
     { headers: headers(), next: { revalidate: 0 } }
   );
 
@@ -110,57 +121,54 @@ async function fetchTrajectoriesPage(
   return res.json();
 }
 
-/** List recent trajectories, paginating automatically to reach the requested count */
+/** List recent trajectories from both tasks, merged and sorted */
 export async function listTrajectories(
   limit = 200,
   page = 1
 ): Promise<TrajectoryListResponse> {
   const PAGE_SIZE = 50;
+  const perTask = Math.min(limit, PAGE_SIZE);
 
-  if (limit <= PAGE_SIZE) {
-    return fetchTrajectoriesPage(limit, page);
+  const results = await Promise.allSettled(
+    ALL_TASKS.map((task) => fetchTrajectoriesPage(task, perTask, page))
+  );
+
+  const all: Trajectory[] = [];
+  for (const r of results) {
+    if (r.status === "fulfilled") {
+      all.push(...r.value.trajectories);
+    }
   }
 
-  const allTrajectories: Trajectory[] = [];
-  let currentPage = page;
-  let remaining = limit;
-  let total = 0;
-
-  while (remaining > 0) {
-    const batchSize = Math.min(remaining, PAGE_SIZE);
-    const data = await fetchTrajectoriesPage(batchSize, currentPage);
-    total = data.total;
-    allTrajectories.push(...data.trajectories);
-    remaining -= data.trajectories.length;
-    currentPage++;
-
-    if (!data.has_more || data.trajectories.length === 0) break;
-  }
+  all.sort(
+    (a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()
+  );
 
   return {
-    trajectories: allTrajectories,
-    total,
+    trajectories: all.slice(0, limit),
+    total: all.length,
     page,
     limit,
-    has_more: allTrajectories.length < total,
+    has_more: false,
   };
 }
 
-/** Get a single trajectory */
+/** Get a single trajectory (tries both tasks) */
 export async function getTrajectory(
   trajectoryId: string
 ): Promise<Trajectory> {
-  const res = await fetch(
-    `${FLOWS_API}/db/trajectory/${COLLECTION}/${TASK}/${trajectoryId}`,
-    { headers: headers(), next: { revalidate: 0 } }
-  );
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Failed to get trajectory: ${res.status} ${text}`);
+  for (const task of ALL_TASKS) {
+    try {
+      const res = await fetch(
+        `${FLOWS_API}/db/trajectory/${COLLECTION}/${task}/${trajectoryId}`,
+        { headers: headers(), next: { revalidate: 0 } }
+      );
+      if (res.ok) return res.json();
+    } catch {
+      continue;
+    }
   }
-
-  return res.json();
+  throw new Error(`Trajectory ${trajectoryId} not found`);
 }
 
 /** Download a file from Jetty storage — returns the Response for streaming */

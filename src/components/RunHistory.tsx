@@ -21,7 +21,7 @@ const statusConfig = {
 } as const;
 
 function ModeBadge({ taskName }: { taskName?: string }) {
-  const isLifestyle = taskName === "max-image-lifestyle";
+  const isLifestyle = taskName?.includes("lifestyle") ?? false;
   return (
     <span
       className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -85,7 +85,7 @@ export function RunHistory() {
             const Icon = cfg.icon;
             const prompt =
               t.init_params?.vars?.prompt ?? "(no prompt)";
-            const taskName = t.init_params?.task_name as string | undefined;
+            const taskName = t.name;
 
             return (
               <tr
